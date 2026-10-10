@@ -1,4 +1,4 @@
--- 全平台通用飞行脚本（已修复移动端摇杆前后方向颠倒问题）
+-- 科幻全息风全平台飞行控制脚本 (Roblox Studio / Delta通用)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -7,14 +7,14 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 local flying = false
-local speed = 50
+local speed = 75 -- 默认科幻速度
 local minSpeed = 10
 local maxSpeed = 300
 
 local keys = {W = false, S = false, A = false, D = false, E = false, Q = false}
 local bv, bg
 
--- 获取 Roblox 移动端默认控制器 (ControlModule)
+-- 获取移动端摇杆控制器
 local playerScripts = player:WaitForChild("PlayerScripts")
 local success, playerModule = pcall(function()
     return require(playerScripts:WaitForChild("PlayerModule"))
@@ -22,160 +22,167 @@ end)
 local controls = success and playerModule:GetControls() or nil
 
 --------------------------------------------------------------------
--- 1. 创建 UI 面板
+-- 1. 创建科幻全息 UI 面板
 --------------------------------------------------------------------
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "FlyControlGui"
+screenGui.Name = "SciFiFlyGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
+-- 主面板外框 (科幻黑蓝透底)
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 220, 0, 210)
-mainFrame.Position = UDim2.new(0, 20, 0.35, 0)
-mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+mainFrame.Size = UDim2.new(0, 420, 0, 260)
+mainFrame.Position = UDim2.new(0.5, -210, 0.35, -130)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 20, 35)
+mainFrame.BackgroundTransparency = 0.15
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Draggable = true
 mainFrame.Parent = screenGui
 
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0, 10)
-uiCorner.Parent = mainFrame
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = mainFrame
 
--- 标题
+-- 科幻边框发光线
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(0, 180, 255)
+stroke.Thickness = 2
+stroke.Parent = mainFrame
+
+-- 顶部标题栏
 local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, 0, 0, 30)
+titleLabel.Size = UDim2.new(1, 0, 0, 40)
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "🚁 飞行控制器"
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.TextSize = 15
-titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.Text = "🚁  ADVANCED FLIGHT CONTROL"
+titleLabel.TextColor3 = Color3.fromRGB(0, 220, 255)
+titleLabel.TextSize = 16
+titleLabel.Font = Enum.Font.GothamBold
 titleLabel.Parent = mainFrame
 
--- 开关按钮
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0.9, 0, 0, 35)
-toggleBtn.Position = UDim2.new(0.05, 0, 0.16, 0)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
-toggleBtn.Text = "飞行状态: 关闭"
-toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleBtn.TextSize = 14
-toggleBtn.Font = Enum.Font.SourceSansBold
-toggleBtn.Parent = mainFrame
+-- 状态指示灯区域
+local statusIndicator = Instance.new("Frame")
+statusIndicator.Size = UDim2.new(0, 12, 0, 12)
+statusIndicator.Position = UDim2.new(0.28, 0, 0.22, 0)
+statusIndicator.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+statusIndicator.Parent = mainFrame
+local statusCorner = Instance.new("UICorner")
+statusCorner.CornerRadius = UDim.new(1, 0)
+statusCorner.Parent = statusIndicator
 
-local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 6)
-btnCorner.Parent = toggleBtn
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(0, 200, 0, 25)
+statusLabel.Position = UDim2.new(0.32, 0, 0.17, 0)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "STATUS: OFFLINE [F]"
+statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+statusLabel.TextSize = 13
+statusLabel.Font = Enum.Font.GothamSemibold
+statusLabel.Parent = mainFrame
 
--- 速度文本显示
-local speedLabel = Instance.new("TextLabel")
-speedLabel.Size = UDim2.new(1, 0, 0, 25)
-speedLabel.Position = UDim2.new(0, 0, 0.35, 0)
-speedLabel.BackgroundTransparency = 1
-speedLabel.Text = "飞行速度: " .. tostring(speed)
-speedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-speedLabel.TextSize = 13
-speedLabel.Font = Enum.Font.SourceSans
-speedLabel.Parent = mainFrame
+-- 速度显示区块
+local speedTextLabel = Instance.new("TextLabel")
+speedTextLabel.Size = UDim2.new(1, 0, 0, 20)
+speedTextLabel.Position = UDim2.new(0, 0, 0.38, 0)
+speedTextLabel.BackgroundTransparency = 1
+speedTextLabel.Text = "FLIGHT VELOCITY"
+speedTextLabel.TextColor3 = Color3.fromRGB(140, 160, 200)
+speedTextLabel.TextSize = 11
+speedTextLabel.Font = Enum.Font.Gotham
+speedTextLabel.Parent = mainFrame
 
--- 减速按钮 (-)
+-- 减速按钮 (<)
 local minusBtn = Instance.new("TextButton")
-minusBtn.Size = UDim2.new(0, 30, 0, 25)
-minusBtn.Position = UDim2.new(0.05, 0, 0.47, 0)
-minusBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
-minusBtn.Text = "-"
-minusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+minusBtn.Size = UDim2.new(0, 45, 0, 35)
+minusBtn.Position = UDim2.new(0.08, 0, 0.48, 0)
+minusBtn.BackgroundColor3 = Color3.fromRGB(40, 25, 35)
+minusBtn.Text = "◀"
+minusBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
 minusBtn.TextSize = 16
-minusBtn.Font = Enum.Font.SourceSansBold
+minusBtn.Font = Enum.Font.GothamBold
 minusBtn.Parent = mainFrame
+Instance.new("UICorner", minusBtn).CornerRadius = UDim.new(0, 6)
 
-local minusCorner = Instance.new("UICorner")
-minusCorner.CornerRadius = UDim.new(0, 4)
-minusCorner.Parent = minusBtn
-
--- 加速按钮 (+)
+-- 加速按钮 (>)
 local plusBtn = Instance.new("TextButton")
-plusBtn.Size = UDim2.new(0, 30, 0, 25)
-plusBtn.Position = UDim2.new(0.81, 0, 0.47, 0)
-plusBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
-plusBtn.Text = "+"
-plusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+plusBtn.Size = UDim2.new(0, 45, 0, 35)
+plusBtn.Position = UDim2.new(0.81, 0, 0.48, 0)
+plusBtn.BackgroundColor3 = Color3.fromRGB(25, 45, 35)
+plusBtn.Text = "▶"
+plusBtn.TextColor3 = Color3.fromRGB(80, 255, 120)
 plusBtn.TextSize = 16
-plusBtn.Font = Enum.Font.SourceSansBold
+plusBtn.Font = Enum.Font.GothamBold
 plusBtn.Parent = mainFrame
+Instance.new("UICorner", plusBtn).CornerRadius = UDim.new(0, 6)
 
-local plusCorner = Instance.new("UICorner")
-plusCorner.CornerRadius = UDim.new(0, 4)
-plusCorner.Parent = plusBtn
+-- 中间速度数字框
+local speedBoxBg = Instance.new("Frame")
+speedBoxBg.Size = UDim2.new(0, 80, 0, 35)
+speedBoxBg.Position = UDim2.new(0.5, -40, 0.48, 0)
+speedBoxBg.BackgroundColor3 = Color3.fromRGB(10, 15, 25)
+speedBoxBg.Parent = mainFrame
+Instance.new("UICorner", speedBoxBg).CornerRadius = UDim.new(0, 6)
+local boxStroke = Instance.new("UIStroke")
+boxStroke.Color = Color3.fromRGB(0, 150, 255)
+boxStroke.Parent = speedBoxBg
 
--- 速度滑动条背景
-local sliderBg = Instance.new("Frame")
-sliderBg.Size = UDim2.new(0.56, 0, 0, 8)
-sliderBg.Position = UDim2.new(0.22, 0, 0.52, 0)
-sliderBg.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-sliderBg.BorderSizePixel = 0
-sliderBg.Parent = mainFrame
-
-local sliderBgCorner = Instance.new("UICorner")
-sliderBgCorner.CornerRadius = UDim.new(0, 4)
-sliderBgCorner.Parent = sliderBg
-
-local sliderFill = Instance.new("Frame")
-sliderFill.Size = UDim2.new((speed - minSpeed) / (maxSpeed - minSpeed), 0, 1, 0)
-sliderFill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-sliderFill.BorderSizePixel = 0
-sliderFill.Parent = sliderBg
-
-local sliderFillCorner = Instance.new("UICorner")
-sliderFillCorner.CornerRadius = UDim.new(0, 4)
-sliderFillCorner.Parent = sliderFill
+local speedNumLabel = Instance.new("TextLabel")
+speedNumLabel.Size = UDim2.new(1, 0, 1, 0)
+speedNumLabel.BackgroundTransparency = 1
+speedNumLabel.Text = tostring(speed)
+speedNumLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedNumLabel.TextSize = 18
+speedNumLabel.Font = Enum.Font.GothamBold
+speedNumLabel.Parent = speedBoxBg
 
 --------------------------------------------------------------------
--- 2. 移动端垂直升降触控按钮 (上升 / 下降)
+-- 2. 垂直升降控制按钮 (UP / DOWN)
 --------------------------------------------------------------------
-local function createVerticalButton(name, text, pos, keyName)
+local function createSciFiButton(name, text, posX, keyName)
     local btn = Instance.new("TextButton")
     btn.Name = name
-    btn.Size = UDim2.new(0.42, 0, 0, 35)
-    btn.Position = pos
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+    btn.Size = UDim2.new(0, 175, 0, 45)
+    btn.Position = UDim2.new(posX, 0, 0.70, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
     btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextColor3 = Color3.fromRGB(200, 220, 255)
     btn.TextSize = 14
-    btn.Font = Enum.Font.SourceSansBold
+    btn.Font = Enum.Font.GothamBold
     btn.Parent = mainFrame
     
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = btn
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    local btnStroke = Instance.new("UIStroke")
+    btnStroke.Color = Color3.fromRGB(0, 120, 200)
+    btnStroke.Parent = btn
     
     btn.MouseButton1Down:Connect(function()
         keys[keyName] = true
-        btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+        btn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     end)
     btn.MouseButton1Up:Connect(function()
         keys[keyName] = false
-        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+        btn.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
+        btn.TextColor3 = Color3.fromRGB(200, 220, 255)
     end)
     btn.MouseLeave:Connect(function()
         keys[keyName] = false
-        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+        btn.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
+        btn.TextColor3 = Color3.fromRGB(200, 220, 255)
     end)
-    
     return btn
 end
 
-createVerticalButton("UpBtn", "⬆ 上升", UDim2.new(0.05, 0, 0.63, 0), "E")
-createVerticalButton("DownBtn", "⬇ 下降", UDim2.new(0.53, 0, 0.63, 0), "Q")
+createSciFiButton("UpBtn", "▲  UP [E]", 0.08, "E")
+createSciFiButton("DownBtn", "▼  DOWN [Q]", 0.53, "Q")
 
 --------------------------------------------------------------------
--- 3. 核心逻辑与事件绑定
+-- 3. 核心飞行逻辑与事件绑定
 --------------------------------------------------------------------
 local function updateSpeedUI()
     speed = math.clamp(speed, minSpeed, maxSpeed)
-    speedLabel.Text = "飞行速度: " .. tostring(math.floor(speed))
-    sliderFill.Size = UDim2.new((speed - minSpeed) / (maxSpeed - minSpeed), 0, 1, 0)
+    speedNumLabel.Text = tostring(math.floor(speed))
 end
 
 local function toggleFly()
@@ -186,8 +193,9 @@ local function toggleFly()
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     
     if flying then
-        toggleBtn.Text = "飞行状态: 开启"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 75)
+        statusLabel.Text = "STATUS: ACTIVE [F]"
+        statusIndicator.BackgroundColor3 = Color3.fromRGB(50, 255, 100)
+        stroke.Color = Color3.fromRGB(50, 255, 100)
         if humanoid then humanoid.PlatformStand = true end
         
         bv = Instance.new("BodyVelocity")
@@ -200,53 +208,26 @@ local function toggleFly()
         bg.CFrame = hrp.CFrame
         bg.Parent = hrp
     else
-        toggleBtn.Text = "飞行状态: 关闭"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+        statusLabel.Text = "STATUS: OFFLINE [F]"
+        statusIndicator.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+        stroke.Color = Color3.fromRGB(0, 180, 255)
         if humanoid then humanoid.PlatformStand = false end
         if bv then bv:Destroy() end
         if bg then bg:Destroy() end
     end
 end
 
-toggleBtn.MouseButton1Click:Connect(toggleFly)
-
 minusBtn.MouseButton1Click:Connect(function()
-    speed = speed - 10
+    speed = speed - 15
     updateSpeedUI()
 end)
 
 plusBtn.MouseButton1Click:Connect(function()
-    speed = speed + 10
+    speed = speed + 15
     updateSpeedUI()
 end)
 
--- 滑动条拖动支持
-local draggingSlider = false
-sliderBg.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingSlider = true
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingSlider = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local mousePos = UserInputService:GetMouseLocation().X
-        local sliderAbsPos = sliderBg.AbsolutePosition.X
-        local sliderWidth = sliderBg.AbsoluteSize.X
-        
-        local percent = math.clamp((mousePos - sliderAbsPos) / sliderWidth, 0, 1)
-        speed = minSpeed + percent * (maxSpeed - minSpeed)
-        updateSpeedUI()
-    end
-end)
-
--- 键盘快捷键支持 (电脑端)
+-- 键盘监听
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.F then toggleFly() end
@@ -267,7 +248,7 @@ UserInputService.InputEnded:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.Q then keys.Q = false end
 end)
 
--- 每帧渲染更新位移
+-- 渲染步更新：集成手机摇杆与键盘
 RunService.RenderStepped:Connect(function()
     if not flying then return end
     local character = player.Character
@@ -277,22 +258,21 @@ RunService.RenderStepped:Connect(function()
         bg.CFrame = camera.CFrame
         local moveDir = Vector3.new()
         
-        -- 1. 获取移动端原生摇杆（Thumbstick）方向（已修复反向问题）
+        -- 移动端摇杆输入
         if controls then
             local rawMove = controls:GetMoveVector()
             if rawMove.Magnitude > 0 then
-                -- 将原本的加号改为减号 (-)，修正摇杆前后方向
                 moveDir = (camera.CFrame.RightVector * rawMove.X) - (camera.CFrame.LookVector * rawMove.Z)
             end
         end
         
-        -- 2. 键盘控制叠加 (PC端 WASD)
+        -- 键盘 WASD 输入
         if keys.W then moveDir = moveDir + camera.CFrame.LookVector end
         if keys.S then moveDir = moveDir - camera.CFrame.LookVector end
         if keys.A then moveDir = moveDir - camera.CFrame.RightVector end
         if keys.D then moveDir = moveDir + camera.CFrame.RightVector end
         
-        -- 3. 垂直升降控制 (面板上的上升/下降按钮 或 键盘 E/Q)
+        -- 垂直升降
         if keys.E then moveDir = moveDir + Vector3.new(0, 1, 0) end
         if keys.Q then moveDir = moveDir - Vector3.new(0, 1, 0) end
         
